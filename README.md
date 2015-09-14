@@ -1,5 +1,7 @@
 # blob-storage
 
+[![Circle CI](https://circleci.com/gh/intception/blob-storage.svg?style=svg)](https://circleci.com/gh/intception/blob-storage)
+
 A Clojure library designed to store blob files.
 
 The rationale behind is to provide a standard API to store, read and delete blob files, independently of the storage used.
