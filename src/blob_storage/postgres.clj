@@ -9,12 +9,10 @@
   BlobStorage
 
   (init-schema! [service]
-    (schema/create-blobs-table! config)
-    (schema/create-blobs-index! config))
+    (schema/create-blobs-table! config))
 
   (drop-schema! [service]
-    (schema/drop-blobs-table! config)
-    (schema/drop-blobs-index! config))
+    (schema/drop-blobs-table! config))
 
   (store! [service blob]
     (schema/store-blob! config (coerce-blob blob)))

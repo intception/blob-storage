@@ -17,7 +17,6 @@
                        (from :blobs)
                        (where `(= :id ~id)))))))
 
-
 (defn create-blobs-table!
   "Creates the blobs table if not exists"
   [db]
@@ -30,15 +29,6 @@
                               (column :size :bigint :not-null? true)
                               (column :created-at :timestamp-with-time-zone :not-null? true :default '(now))
                               (column :updated-at :timestamp-with-time-zone)))))
-
-(defn create-blobs-index!
-  [db]
-  (j/execute! db ["CREATE INDEX blobs_id_index ON blobs (id);"]))
-
-(defn drop-blobs-index!
-  [db]
-  (j/execute! db ["DROP INDEX IF EXISTS blobs_id_index;"]))
-
 
 (defn drop-blobs-table!
   "Drop the blobs table if exists"
@@ -70,7 +60,6 @@
                                         :blob blob
                                         :size (alength blob)}
                            (where `(= :id ~id))))))
-
 
 (defn delete-blob!
   "Deletes a blob from the database"
