@@ -3,8 +3,8 @@
   :url "https://github.com/intception/blob-storage"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.7.0"]
-                 [org.clojure/java.jdbc "0.4.1"]
-                 [postgresql "9.3-1102.jdbc41"]
-                 [sqlingvo "0.7.15"]]
+  :dependencies [[org.clojure/clojure "1.6.0"]
+                 [org.clojure/java.jdbc "0.3.5"]
+                 [postgresql/postgresql "8.4-702.jdbc4"]
+                 [sqlingvo "0.7.10"]]
   :aot [blob-storage.postgres])
