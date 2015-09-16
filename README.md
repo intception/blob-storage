@@ -19,7 +19,7 @@ And, at present, Datomic does not have support for BLOBs.
 
 Supported storages:
 
-- [PostgreSQL](www.postgresql.org/)
+- [PostgreSQL](http://www.postgresql.org/)
     
 Planned:
 
