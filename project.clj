@@ -1,4 +1,4 @@
-(defproject blob-storage "0.1.0"
+(defproject blob-storage "0.2.0"
   :description "Blob Storage Library"
   :url "https://github.com/intception/blob-storage"
   :license {:name "Eclipse Public License"
@@ -6,5 +6,5 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/java.jdbc "0.3.5"]
                  [postgresql/postgresql "8.4-702.jdbc4"]
-                 [sqlingvo "0.7.10"]]
-  :aot [blob-storage.postgres])
+                 [com.microsoft.sqlserver/sqljdbc4 "4.2"]
+                 [sqlingvo "0.7.10"]])
