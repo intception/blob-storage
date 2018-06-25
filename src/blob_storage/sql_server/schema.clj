@@ -23,6 +23,7 @@
   (j/execute! db
               (sql
                (create-table sqdb :blobs
+                             (if-not-exists true)
                              (column :id :varchar :length 40 :primary-key? true)
                              (column :blob (keyword "varbinary(max)") :not-null? true)
                              (column :size :bigint :not-null? true)

@@ -1,4 +1,4 @@
-(defproject blob-storage "0.2.1"
+(defproject blob-storage "0.2.2"
   :description "Blob Storage Library"
   :url "https://github.com/intception/blob-storage"
   :license {:name "Eclipse Public License"
