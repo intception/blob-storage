@@ -17,18 +17,29 @@
                        (from :blobs)
                        (where `(= :id ~id)))))))
 
+(defn blobs-table-exists?
+  [db]
+  (->> (sql
+         (select sqdb [:name]
+                 (from :SysObjects)
+                 (where '(= :xType "U"))
+                 (where '(like :name "%blobs%") :and)))
+       (j/query db)
+       (first)))
+
+
 (defn create-blobs-table!
   "Creates the blobs table if not exists"
   [db]
-  (j/execute! db
-              (sql
-               (create-table sqdb :blobs
-                             (if-not-exists true)
-                             (column :id :varchar :length 40 :primary-key? true)
-                             (column :blob (keyword "varbinary(max)") :not-null? true)
-                             (column :size :bigint :not-null? true)
-                             (column :created-at :datetime :not-null? true)
-                             (column :updated-at :datetime)))))
+  (when-not (blobs-table-exists? db)
+    (j/execute! db
+                (sql
+                  (create-table sqdb :blobs
+                                (column :id :varchar :length 40 :primary-key? true)
+                                (column :blob (keyword "varbinary(max)") :not-null? true)
+                                (column :size :bigint :not-null? true)
+                                (column :created-at :datetime :not-null? true)
+                                (column :updated-at :datetime))))))
 
 (defn drop-blobs-table!
   "Drop the blobs table if exists"
