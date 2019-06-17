@@ -8,7 +8,7 @@
   (drop-schema! [service]
     "Drops the schema")
 
-  (store! [service blob]
+  (store! [service blob] [service blob id]
     "Adds a new blob to the database")
 
   (update! [service id blob]

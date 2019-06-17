@@ -17,6 +17,9 @@
   (store! [service blob]
     (schema/store-blob! config (coerce-blob blob)))
 
+  (store! [service blob id]
+    (schema/inup-blob! config (coerce-blob blob) id))
+
   (update! [service id blob]
     (schema/update-blob! config id blob))
 

@@ -52,6 +52,27 @@
                                             :size (alength blob)}))))
       id)))
 
+
+(defn inup-blob!
+  "Inserts the new blob to the database using the specified id.
+  The blob id is created internally.
+
+  Returns the id generated"
+  [db #^bytes blob id]
+  (j/execute! db
+    (sql
+      (with sqdb
+            [:upsert (update sqdb :blobs
+                             {:blob blob
+                              :size (alength blob)
+                              :updated-at '(now)}
+                             (where `(= :id ~id))
+                             (returning *))]
+            (insert sqdb :blobs [:id :blob :size]
+                    (select sqdb [id blob (alength blob)])
+                    (where `(not-exists ~(select sqdb [*]
+                                                 (from :upsert)))))))))
+
 (defn update-blob!
   "Updates a blob from the database"
   [db id #^bytes blob]

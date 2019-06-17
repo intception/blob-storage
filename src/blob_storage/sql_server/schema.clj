@@ -1,6 +1,7 @@
 (ns blob-storage.sql-server.schema
   (:refer-clojure :exclude [distinct group-by update])
   (:require [clojure.java.jdbc :as j]
+            [clojure.string :as string]
             [sqlingvo.db :as sqdb])
   (:use sqlingvo.core))
 
@@ -62,6 +63,45 @@
                                             :created-at (java.util.Date.)
                                             :size (alength blob)}))))
       id)))
+
+
+(def upsert-query-string ""
+  "IF EXISTS (select * FROM %s WITH (updlock,serializable) where %s)
+     BEGIN
+          UPDATE %s WITH (updlock)
+          SET %s
+          WHERE %s
+     END
+   ELSE
+     BEGIN
+          INSERT %s
+          (%s) VALUES (%s)
+     END")
+
+(defn inup-blob!
+  "Inserts the new blob to the database using the specified id.
+  The blob id is created internally.
+
+  Returns the id generated"
+  [db #^bytes blob id]
+  (let [columns ["id" "blob" "size" "created-at"]
+        values [id blob (alength blob) (java.util.Date.)]]
+    (j/execute! db
+                (format upsert-query-string
+                        "blobs"
+                        (format "id='%s'" id)
+                        "blobs"
+                        (string/join ", "
+                                     (map (fn [col val]
+                                            (format "%s='%s'"
+                                                    (symbol col)
+                                                    val))
+                                          columns values))
+                        (format "id='%s'" id)
+                        "blobs"
+                        (string/join ", " (map #(str "["%"]") columns))
+                        (string/join ", " (map #(str "'"% "'") values))))))
+
 
 (defn update-blob!
   "Updates a blob from the database"
