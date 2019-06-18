@@ -24,7 +24,7 @@
               (sql
                 (create-table sqdb :blobs
                               (if-not-exists true)
-                              (column :id :varchar :length 40 :primary-key? true)
+                              (column :id :varchar :length 150 :primary-key? true)
                               (column :blob :bytea :not-null? true)
                               (column :size :bigint :not-null? true)
                               (column :created-at :timestamp-with-time-zone :not-null? true :default '(now))
