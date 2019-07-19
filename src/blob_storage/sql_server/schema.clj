@@ -36,7 +36,7 @@
     (j/execute! db
                 (sql
                   (create-table sqdb :blobs
-                                (column :id :varchar :length 40 :primary-key? true)
+                                (column :id :varchar :length 150 :primary-key? true)
                                 (column :blob (keyword "varbinary(max)") :not-null? true)
                                 (column :size :bigint :not-null? true)
                                 (column :created-at :datetime :not-null? true)
