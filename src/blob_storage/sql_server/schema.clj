@@ -66,16 +66,19 @@
 
 
 (def upsert-query-string ""
-  "IF EXISTS (select * FROM %s WITH (updlock,serializable) where %s)
+  "DECLARE @id VARCHAR(150), @blob VARBINARY(max), @size BIGINT, @created_at datetime;
+   SELECT @id = ?, @blob = ?, @size = ?, @created_at = ?;
+
+   IF EXISTS (select * FROM blobs WITH (updlock,serializable) where id=@id)
      BEGIN
-          UPDATE %s WITH (updlock)
-          SET %s
-          WHERE %s
+          UPDATE blobs WITH (updlock)
+          SET id=@id, blob=@blob, size=@size, created_at=@created_at
+          WHERE id=@id
      END
    ELSE
      BEGIN
-          INSERT %s
-          (%s) VALUES (%s)
+          INSERT blobs
+          ([id], [blob], [size], [created_at]) VALUES (@id, @blob, @size, @created_at)
      END")
 
 (defn inup-blob!
@@ -84,24 +87,11 @@
 
   Returns the id generated"
   [db #^bytes blob id]
-  (let [columns ["id" "blob" "size" "created-at"]
-        values [id blob (alength blob) (java.util.Date.)]]
-    (j/execute! db
-                (format upsert-query-string
-                        "blobs"
-                        (format "id='%s'" id)
-                        "blobs"
-                        (string/join ", "
-                                     (map (fn [col val]
-                                            (format "%s='%s'"
-                                                    (symbol col)
-                                                    val))
-                                          columns values))
-                        (format "id='%s'" id)
-                        "blobs"
-                        (string/join ", " (map #(str "["%"]") columns))
-                        (string/join ", " (map #(str "'"% "'") values))))))
-
+  (j/execute! db [upsert-query-string
+                  id
+                  blob
+                  (alength blob)
+                  (java.util.Date.)]))
 
 (defn update-blob!
   "Updates a blob from the database"
