@@ -1,22 +1,37 @@
 (ns blob-storage.sql-server.schema
   (:refer-clojure :exclude [distinct group-by update])
   (:require [clojure.java.jdbc :as j]
-            [clojure.string :as string]
-            [sqlingvo.db :as sqdb])
+            [sqlingvo.db :as sqdb]
+            [blob-storage.api :refer [BlobBinary]]
+            [blob-storage.coerce :refer [input-stream->byte-array]])
   (:use sqlingvo.core))
 
-
 (def sqdb (sqdb/sqlserver))
+
+(deftype Blob [^"[B" bytes]
+  BlobBinary
+
+  (bytea? [_]
+    true)
+
+  (get-bytes [_]
+    bytes)
+
+  (get-stream [_]
+    (java.io.ByteArrayInputStream. bytes)))
 
 (defn get-blob
   "Retrieves a blob from database, nil if blob does not exists"
   [db id]
-  (first
-    (j/query db
-             (sql
-               (select sqdb [*]
-                       (from :blobs)
-                       (where `(= :id ~id)))))))
+  (if-some [row (first
+                  (j/query db
+                           (sql
+                             (select sqdb [*]
+                                     (from :blobs)
+                                     (where `(= :id ~id))))))]
+    (clojure.core/update row
+                         :blob
+                         #(->Blob %))))
 
 (defn blobs-table-exists?
   [db]
@@ -54,14 +69,14 @@
   The blob id is created internally.
 
   Returns the id generated"
-  [db #^bytes blob]
+  [db [blob-size input-stream]]
   (let [id (str (java.util.UUID/randomUUID))]
     (when (j/execute! db
                       (sql (insert sqdb :blobs []
                                    (values {:id id
-                                            :blob blob
+                                            :blob (input-stream->byte-array input-stream blob-size)
                                             :created-at (java.util.Date.)
-                                            :size (alength blob)}))))
+                                            :size blob-size}))))
       id)))
 
 
@@ -86,20 +101,20 @@
   The blob id is created internally.
 
   Returns the id generated"
-  [db #^bytes blob id]
+  [db [blob-size input-stream] id]
   (j/execute! db [upsert-query-string
                   id
-                  blob
-                  (alength blob)
+                  (input-stream->byte-array input-stream blob-size)
+                  blob-size
                   (java.util.Date.)]))
 
 (defn update-blob!
   "Updates a blob from the database"
-  [db id #^bytes blob]
+  [db id [blob-size input-stream]]
   (j/execute! db
               (sql (update sqdb :blobs {:updated-at (java.util.Date.)
-                                        :blob blob
-                                        :size (alength blob)}
+                                        :blob (input-stream->byte-array input-stream blob-size)
+                                        :size blob-size}
                            (where `(= :id ~id))))))
 
 (defn delete-blob!

@@ -21,7 +21,7 @@
     (schema/inup-blob! config (coerce-blob blob) id))
 
   (update! [service id blob]
-    (schema/update-blob! config id blob))
+    (schema/update-blob! config id (coerce-blob blob)))
 
   (del! [service id]
     (schema/delete-blob! config id))
