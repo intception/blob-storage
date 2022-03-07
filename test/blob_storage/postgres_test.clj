@@ -2,13 +2,13 @@
   (:use [clojure.test])
   (:require [blob-storage.postgres :as p]
             [blob-storage.api :as b]
+            [blob-storage.coerce :as bc]
             [clojure.java.jdbc :as j]
             [sqlingvo.core :as sql]
-            [sqlingvo.db :as sqdb])
-  (:import (java.io ByteArrayInputStream FileInputStream)))
+            [sqlingvo.db :as sqdb]))
 
 
-(def db-spec (or (System/getenv "DATABASE_URL")
+(def db-spec (or (System/getenv "DATABASE_URL_PG")
                  "postgresql://postgres:postgres@localhost:5432/blobs_test"))
 
 (def service (p/make db-spec))
@@ -31,7 +31,7 @@
       (is (= (:id stored-blob) blob-id) "Different blob id from the stored")
       (is (not (nil? (:blob stored-blob))) "Blob stored incorrectly")
       (is (= (alength blob) (:size stored-blob)) "Incorrect blob size")
-      (is (= (aget (b/get-bytes (:blob stored-blob)) 2) 2) "This blob doesn't seem like the one I stored")
+      (is (= (aget (bc/blob->bytes (:blob stored-blob)) 2) 2) "This blob doesn't seem like the one I stored")
       (is (not (nil? (:created_at stored-blob))) "This blob doesn't have a created date")
       (is (nil? (:updated_at stored-blob)) "Newly created blobs doesn't have updated date"))))
 
@@ -45,7 +45,7 @@
       (is (= (:id updated-blob) blob-id) "Different blob id from the updated")
       (is (not (nil? (:blob updated-blob))) "Blob updated incorrectly")
       (is (= (alength new-blob) (:size updated-blob)) "Incorrect blob size")
-      (is (= (aget (b/get-bytes (:blob updated-blob)) 0) 3) "This blob doesn't seem like the one I stored")
+      (is (= (aget (bc/blob->bytes (:blob updated-blob)) 0) 3) "This blob doesn't seem like the one I stored")
       (is (not (nil? (:created_at updated-blob))) "This blob doesn't have a created date")
       (is (not (nil? (:updated_at updated-blob))) "This blob doesn't have a updated date"))))
 
@@ -63,14 +63,15 @@
       (let [blob (byte-array 99)
             blob-id (b/store! service blob)
             stored-blob (b/blob service blob-id)]
-        (is (b/bytea? (:blob stored-blob)) "Blob column should be filled with data")
-        (is (= 99 (alength (b/get-bytes (:blob stored-blob)))) "Incorrect blob length")
-        (is (instance? ByteArrayInputStream (b/get-stream (:blob stored-blob))) "Incorrect coercion to InputStream")))
+        (is (instance? java.io.InputStream (:blob stored-blob)))
+        (is (instance? java.io.BufferedInputStream (:blob stored-blob)))
+        (is (= 99 (alength (bc/blob->bytes (:blob stored-blob)))) "Incorrect blob length")))
 
     (testing "bigger than threshold"
       (let [blob (byte-array 101)
             blob-id (b/store! service blob)
             stored-blob (b/blob service blob-id)]
-        (is (not (b/bytea? (:blob stored-blob))) "Blob should be afile")
-        (is (= 101 (alength (b/get-bytes (:blob stored-blob)))) "Incorrect blob length" )
-        (is (instance? FileInputStream (b/get-stream (:blob stored-blob))) "Incorrect coercion to InputStream")))))
+        (is (not (bytes? (:blob stored-blob))) "Blob should be afile")
+        (is (instance? java.io.InputStream (:blob stored-blob)))
+        (is (instance? java.io.BufferedInputStream (:blob stored-blob)))
+        (is (= 101 (alength (bc/blob->bytes (:blob stored-blob)))) "Incorrect blob length")))))

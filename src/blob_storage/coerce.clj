@@ -1,28 +1,70 @@
-(ns blob-storage.coerce)
+(ns blob-storage.coerce
+  (:require [clojure.java.io :as io])
+  (:import (java.io File InputStream FileInputStream)))
+
+;; from clojure.java.io
+(def
+  ^{:doc "Type object for a Java primitive byte array."
+    :private true}
+  byte-array-type (class (make-array Byte/TYPE 0)))
 
 (defmulti coerce-blob
-  "Coerces the blob to a vector of [size input-stream]"
-  ^java.io.File
+  "Coerces the blob to a vector of [size blob]. Where blob is
+  a file or a byte array, but never a stream."
+  ^File
   type)
 
-(defmethod coerce-blob (class (byte-array 0))
+(defmethod coerce-blob byte-array-type
   [^"[B" input]
-  [(alength input) (java.io.ByteArrayInputStream. input)])
+  [(alength input) input])
 
-(defmethod coerce-blob java.io.File
-  [^java.io.File input]
-  [(.length input) (java.io.FileInputStream. input)])
+(defmethod coerce-blob File
+  [^File input]
+  [(.length input) input])
 
 ;; this one will copy the input stream to a
-;; temporary file so avoid whenever possible
-(defmethod coerce-blob java.io.InputStream
-  [^java.io.InputStream input]
-  (let [temp-file (java.io.File/createTempFile "blob-storage" ".bin")]
-    (clojure.java.io/copy input temp-file)
+;; temporary file so avoid if possible
+(defmethod coerce-blob InputStream
+  [^InputStream input]
+  (let [temp-file (File/createTempFile "blob-storage" ".bin")]
+    (io/copy input temp-file)
     (coerce-blob temp-file)))
 
-(defn input-stream->byte-array
-  [^java.io.InputStream input-stream size]
-  (let [buff (byte-array size)]
-    (.read input-stream buff)
-    buff))
+(defmulti ^"[B" blob->bytes
+  "Use to get a byte array from a returned blob. An optional size
+   argument can be used as a hint of the blob's size to improve
+   performance."
+  (fn [blob & [size]]
+    (type blob)))
+
+(defmethod blob->bytes byte-array-type
+  [^"[B" input & _]
+  input)
+
+(defmethod blob->bytes File
+  [^File file & _]
+  (let [result (byte-array (.length file))]
+    (with-open [stream (io/input-stream file)]
+      ;; ok with the underlying implementation of readBytes
+      (.read stream result))
+    result))
+
+(defmethod blob->bytes InputStream
+  [^InputStream input-stream & [size]]
+  (if size
+    ;; if the size is known then read directly to the byte array
+    (let [result (byte-array size)]
+      (.read input-stream result)
+      result)
+    ;; size is unknown, so we'll pivot using a temporary file
+    (let [temp-file (File/createTempFile "blob-storage" ".bin")]
+      (try
+        (io/copy input-stream temp-file)
+        (blob->bytes temp-file)
+        (finally
+          (.delete temp-file))))))
+
+(defn blob->stream
+  "Creates an InputStream from a blob. The blob can be a file or a byte array"
+  [blob]
+  (io/input-stream blob))

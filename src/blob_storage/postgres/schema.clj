@@ -3,33 +3,14 @@
   (:require [clojure.java.jdbc :as j]
             [sqlingvo.db :as sqdb]
             [pallet.thread-expr :as th]
-            [blob-storage.api :refer [BlobBinary]]
-            [blob-storage.coerce :refer [input-stream->byte-array]])
+            [blob-storage.coerce :as bc]
+            [clojure.java.io :as io])
   (:use sqlingvo.core)
   (:import (org.postgresql PGConnection)
            (org.postgresql.largeobject LargeObjectManager)
-           (java.io File FileInputStream FileOutputStream ByteArrayInputStream)))
+           (java.io File FileOutputStream)))
 
 (def sqdb (sqdb/postgresql))
-
-(deftype Blob [bytes file]
-  BlobBinary
-
-  (bytea? [_]
-    (some? bytes))
-
-  (get-bytes [_]
-    (if (some? bytes)
-      bytes
-      (let [result (byte-array (.length file))]
-        (with-open [stream (FileInputStream. ^File file)]
-          (.read stream result))
-        result)))
-
-  (get-stream [_]
-    (if (some? bytes)
-      (ByteArrayInputStream. bytes)
-      (FileInputStream. ^File file))))
 
 (def large-object-threshold
   "Value is set via blob-storage.large-object-threshold system property; defaults to
@@ -61,10 +42,10 @@
     file))
 
 (defn- execute-upsert-transaction!
-  [db [blob-size input-stream] make-upsert-sql]
+  [db [blob-size blob] make-upsert-sql]
   (if (< blob-size @large-object-threshold)
     (let [sql (make-upsert-sql {:oid nil ; FIXME: Does not delete the old large object
-                                :blob (input-stream->byte-array input-stream blob-size)
+                                :blob (bc/blob->bytes blob blob-size)
                                 :size blob-size
                                 :updated-at '(now)})]
       (j/execute! db sql))
@@ -75,7 +56,7 @@
             oid (.createLO lo-mgr LargeObjectManager/READWRITE)]
         ;; upload large object
         (with-open [obj (.open lo-mgr oid LargeObjectManager/WRITE)]
-          (copy-streams! input-stream obj))
+          (copy-streams! (bc/blob->stream blob) obj))
         ;; update the table in the same transaction
         (let [sql (make-upsert-sql {:oid oid
                                     :blob nil
@@ -93,12 +74,9 @@
                                     "SELECT * FROM blobs WHERE id = ?")
           row (first (j/query db [stmt id]))]
       (some-> row
-              (th/if-> (:oid row)
-                (assoc :blob
-                       (->Blob nil (large-object->file conn (:oid row))))
-                (clojure.core/update
-                  :blob
-                  #(->Blob % nil)))
+              (th/when-> (:oid row)
+                (assoc :blob (large-object->file conn (:oid row))))
+              (clojure.core/update :blob #(io/input-stream %))
               ;; internal implementation detail, no need to expose it
               (dissoc :oid)))))
 
