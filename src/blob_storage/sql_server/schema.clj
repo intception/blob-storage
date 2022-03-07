@@ -20,6 +20,16 @@
                          :blob
                          #(java.io.ByteArrayInputStream. %))))
 
+(defn get-blob-metadata
+  "Retrieves blob metadata from database, nil if blob does not exists"
+  [db id]
+  (->> (sql
+         (select sqdb [:id :size :created-at :updated-at]
+                 (from :blobs)
+                 (where `(= :id ~id))))
+       (j/query db)
+       first))
+
 (defn blobs-table-exists?
   [db]
   (->> (sql

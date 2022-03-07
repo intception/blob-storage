@@ -25,7 +25,8 @@
 (deftest store-blob
   (let [blob (byte-array [(byte 0) (byte 1) (byte 2)])
         blob-id (b/store! service blob)
-        stored-blob (b/blob service blob-id)]
+        stored-blob (b/blob service blob-id)
+        blob-meta (b/blob-metadata service blob-id)]
 
     (testing "store blob"
       (is (= (:id stored-blob) blob-id) "Different blob id from the stored")
@@ -33,13 +34,15 @@
       (is (= (alength blob) (:size stored-blob)) "Incorrect blob size")
       (is (= (aget (bc/blob->bytes (:blob stored-blob)) 2) 2) "This blob doesn't seem like the one I stored")
       (is (not (nil? (:created_at stored-blob))) "This blob doesn't have a created date")
-      (is (nil? (:updated_at stored-blob)) "Newly created blobs doesn't have updated date"))))
+      (is (nil? (:updated_at stored-blob)) "Newly created blobs doesn't have updated date")
+      (is (= blob-meta (dissoc stored-blob :blob))))))
 
 (deftest update-blob
   (let [blob-id (b/store! service (byte-array [(byte 0) (byte 1) (byte 2)]))
         new-blob (byte-array [(byte 3)])
         _ (b/update! service blob-id new-blob)
-        updated-blob (b/blob service blob-id)]
+        updated-blob (b/blob service blob-id)
+        blob-meta (b/blob-metadata service blob-id)]
 
     (testing "update blob"
       (is (= (:id updated-blob) blob-id) "Different blob id from the updated")
@@ -47,7 +50,8 @@
       (is (= (alength new-blob) (:size updated-blob)) "Incorrect blob size")
       (is (= (aget (bc/blob->bytes (:blob updated-blob)) 0) 3) "This blob doesn't seem like the one I stored")
       (is (not (nil? (:created_at updated-blob))) "This blob doesn't have a created date")
-      (is (not (nil? (:updated_at updated-blob))) "This blob doesn't have a updated date"))))
+      (is (not (nil? (:updated_at updated-blob))) "This blob doesn't have a updated date")
+      (is (= blob-meta (dissoc updated-blob :blob))))))
 
 
 (deftest delete-blob

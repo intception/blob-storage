@@ -22,4 +22,12 @@
      - :size - the size of the blob in bytes
      - :created-at - the date when the blob was created
      - :updated-at - the date when the blob was last updated (if any)
-     - :blob  - the blob itself (a java.io.InputStream object)"))
+     - :blob  - the blob itself (a java.io.InputStream object)")
+
+  (blob-metadata [service id]
+    "Retrieves metadata for a blob given its id (blob not included).
+     Returns a map of:
+     - :id - the id of the blob (same as the id argument)
+     - :size - the size of the blob in bytes
+     - :created-at - the date when the blob was created
+     - :updated-at - the date when the blob was last updated (if any)"))

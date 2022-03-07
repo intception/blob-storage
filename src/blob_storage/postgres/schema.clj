@@ -80,6 +80,16 @@
               ;; internal implementation detail, no need to expose it
               (dissoc :oid)))))
 
+(defn get-blob-metadata
+  "Retrieves blob metadata from database, nil if blob does not exists"
+  [db id]
+  (->> (sql
+         (select sqdb [:id :size :created-at :updated-at]
+                 (from :blobs)
+                 (where `(= :id ~id))))
+       (j/query db)
+       first))
+
 (defn create-blobs-table!
   "Creates the blobs table if not exists"
   [db]

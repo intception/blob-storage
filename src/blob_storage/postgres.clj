@@ -27,7 +27,10 @@
     (schema/delete-blob! config id))
 
   (blob [service id]
-    (schema/get-blob config id)))
+    (schema/get-blob config id))
+
+  (blob-metadata [service id]
+    (schema/get-blob-metadata config id)))
 
 (defn make
   "Creates a new PostgreSQL service"
