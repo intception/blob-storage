@@ -1,6 +1,7 @@
 (ns blob-storage.sql-server.schema
   (:refer-clojure :exclude [distinct group-by update])
   (:require [clojure.java.jdbc :as j]
+            [clojure.java.io :as io]
             [sqlingvo.db :as sqdb]
             [blob-storage.coerce :as bc])
   (:use sqlingvo.core))
@@ -18,7 +19,7 @@
                                       (where `(= :id ~id))))))]
     (clojure.core/update row
                          :blob
-                         #(java.io.ByteArrayInputStream. %))))
+                         io/input-stream)))
 
 (defn get-blob-metadata
   "Retrieves blob metadata from database, nil if blob does not exists"

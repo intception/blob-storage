@@ -8,7 +8,7 @@
   (:use sqlingvo.core)
   (:import (org.postgresql PGConnection)
            (org.postgresql.largeobject LargeObjectManager)
-           (java.io File FileOutputStream)))
+           (java.io File)))
 
 (def sqdb (sqdb/postgresql))
 
@@ -37,7 +37,7 @@
         ^LargeObjectManager lo-mgr (.getLargeObjectAPI pg-conn)
         obj (.open lo-mgr ^long oid LargeObjectManager/READ)
         file (File/createTempFile "blob-storage" ".bin")]
-    (with-open [stream (FileOutputStream. file)]
+    (with-open [stream (io/output-stream file)]
       (copy-streams! obj stream))
     file))
 
