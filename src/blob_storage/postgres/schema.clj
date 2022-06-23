@@ -58,8 +58,9 @@
             ^LargeObjectManager lo-mgr (.getLargeObjectAPI pg-conn)
             oid (.createLO lo-mgr LargeObjectManager/READWRITE)]
         ;; upload large object
-        (with-open [obj (.open lo-mgr oid LargeObjectManager/WRITE)]
-          (copy-streams! (bc/blob->stream blob) obj))
+        (with-open [obj (.open lo-mgr oid LargeObjectManager/WRITE)
+                    is (bc/blob->stream blob)]
+          (copy-streams! is obj))
         ;; update the table in the same transaction
         (let [sql (make-upsert-sql {:oid oid
                                     :blob nil
