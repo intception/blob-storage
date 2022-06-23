@@ -12,6 +12,9 @@
 
 (def sqdb (sqdb/postgresql))
 
+
+(def ^:private lo-buffer-size 16384)
+
 (def large-object-threshold
   "Value is set via blob-storage.large-object-threshold system property; defaults to
   50 MB; uses a delay so property can be set from code after namespace is loaded but
@@ -23,9 +26,9 @@
 (defn- copy-streams!
   "Like clojure.java.io/copy but works with org.postgresql.largeobject.LargeObject."
   [input output]
-  (let [buffer (byte-array 1024)]
+  (let [buffer (byte-array lo-buffer-size)]
     (loop []
-      (let [size (.read input buffer 0 1024)]
+      (let [size (.read input buffer 0 lo-buffer-size)]
         (when (pos? size)
           (do (.write output buffer 0 size)
               (recur)))))))
@@ -55,8 +58,9 @@
             ^LargeObjectManager lo-mgr (.getLargeObjectAPI pg-conn)
             oid (.createLO lo-mgr LargeObjectManager/READWRITE)]
         ;; upload large object
-        (with-open [obj (.open lo-mgr oid LargeObjectManager/WRITE)]
-          (copy-streams! (bc/blob->stream blob) obj))
+        (with-open [obj (.open lo-mgr oid LargeObjectManager/WRITE)
+                    is (bc/blob->stream blob)]
+          (copy-streams! is obj))
         ;; update the table in the same transaction
         (let [sql (make-upsert-sql {:oid oid
                                     :blob nil
