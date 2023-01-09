@@ -21,11 +21,11 @@ Supported storages:
 
 - [PostgreSQL](http://www.postgresql.org/)
 - [SQL Server](https://www.microsoft.com/en-us/sql-server/sql-server-2022)
+- [Amazon S3](https://aws.amazon.com/s3/)
  
 Planned:
 
 - FileSystem
-- [Amazon S3](https://aws.amazon.com/s3/)
 - [Cassandra](http://cassandra.apache.org/)
 
 
