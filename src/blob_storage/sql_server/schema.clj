@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [distinct group-by update])
   (:require [clojure.java.jdbc :as j]
             [clojure.java.io :as io]
+            [pallet.thread-expr :as th]
             [sqlingvo.db :as sqdb]
             [blob-storage.coerce :as bc])
   (:use sqlingvo.core))
@@ -25,7 +26,7 @@
   "Retrieves blob metadata from database, nil if blob does not exists"
   [db id]
   (->> (sql
-         (select sqdb [:id :size :created-at :updated-at]
+         (select sqdb [:id :tag :size :created-at :updated-at]
                  (from :blobs)
                  (where `(= :id ~id))))
        (j/query db)
@@ -46,14 +47,17 @@
   "Creates the blobs table if not exists"
   [db]
   (when-not (blobs-table-exists? db)
-    (j/execute! db
-                (sql
-                  (create-table sqdb :blobs
-                                (column :id :varchar :length 150 :primary-key? true)
-                                (column :blob (keyword "varbinary(max)") :not-null? true)
-                                (column :size :bigint :not-null? true)
-                                (column :created-at :datetime :not-null? true)
-                                (column :updated-at :datetime))))))
+    (j/with-db-transaction [t-conn db]
+      (j/execute! db
+                  (sql
+                    (create-table sqdb :blobs
+                                  (column :id :varchar :length 150 :primary-key? true)
+                                  (column :tag :varchar :length 32)
+                                  (column :blob (keyword "varbinary(max)") :not-null? true)
+                                  (column :size :bigint :not-null? true)
+                                  (column :created-at :datetime :not-null? true)
+                                  (column :updated-at :datetime))))
+      (j/execute! db "CREATE INDEX blobs_tag_idx ON blobs (tag)"))))
 
 (defn drop-blobs-table!
   "Drop the blobs table if exists"
@@ -67,31 +71,33 @@
   The blob id is created internally.
 
   Returns the id generated"
-  [db [blob-size blob]]
+  [db [blob-size blob] {:keys [tag]}]
   (let [id (str (java.util.UUID/randomUUID))]
     (when (j/execute! db
                       (sql (insert sqdb :blobs []
-                                   (values {:id id
-                                            :blob (bc/blob->bytes blob)
-                                            :created-at (java.util.Date.)
-                                            :size blob-size}))))
+                                   (values (-> {:id id
+                                                :blob (bc/blob->bytes blob)
+                                                :created-at (java.util.Date.)
+                                                :size blob-size}
+                                               (th/when-> tag
+                                                 (assoc :tag tag)))))))
       id)))
 
 
 (def upsert-query-string ""
-  "DECLARE @id VARCHAR(150), @blob VARBINARY(max), @size BIGINT, @created_at datetime;
-   SELECT @id = ?, @blob = ?, @size = ?, @created_at = ?;
+  "DECLARE @id VARCHAR(150), @tag VARCHAR(32), @blob VARBINARY(max), @size BIGINT, @created_at datetime;
+   SELECT @id = ?, @tag = ?, @blob = ?, @size = ?, @created_at = ?;
 
    IF EXISTS (select * FROM blobs WITH (updlock,serializable) where id=@id)
      BEGIN
           UPDATE blobs WITH (updlock)
-          SET id=@id, blob=@blob, size=@size, created_at=@created_at
+          SET blob=@blob, size=@size, updated_at=@created_at
           WHERE id=@id
      END
    ELSE
      BEGIN
           INSERT blobs
-          ([id], [blob], [size], [created_at]) VALUES (@id, @blob, @size, @created_at)
+          ([id], [tag], [blob], [size], [created_at]) VALUES (@id, @tag, @blob, @size, @created_at)
      END")
 
 (defn inup-blob!
@@ -99,12 +105,14 @@
   The blob id is created internally.
 
   Returns the id generated"
-  [db [blob-size blob] id]
+  [db [blob-size blob] id {:keys [tag]}]
   (j/execute! db [upsert-query-string
                   id
+                  tag
                   (bc/blob->bytes blob blob-size)
                   blob-size
-                  (java.util.Date.)]))
+                  (java.util.Date.)])
+  id)
 
 (defn update-blob!
   "Updates a blob from the database"

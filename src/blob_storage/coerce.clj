@@ -56,13 +56,10 @@
     (let [result (byte-array size)]
       (.read input-stream result)
       result)
-    ;; size is unknown, so we'll pivot using a temporary file
-    (let [temp-file (File/createTempFile "blob-storage" ".bin")]
-      (try
-        (io/copy input-stream temp-file)
-        (blob->bytes temp-file)
-        (finally
-          (.delete temp-file))))))
+    ;; size is unknown, copy data chunk by chunk
+    (with-open [os (java.io.ByteArrayOutputStream.)]
+      (io/copy input-stream os :buffer-size 4096)
+      (.toByteArray os))))
 
 (defn blob->stream
   "Creates an InputStream from a blob. The blob can be a file or a byte array"

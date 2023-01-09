@@ -30,8 +30,8 @@
     (loop []
       (let [size (.read input buffer 0 lo-buffer-size)]
         (when (pos? size)
-          (do (.write output buffer 0 size)
-              (recur)))))))
+          (.write output buffer 0 size)
+          (recur))))))
 
 (defn- large-object->file
   ^File
@@ -88,25 +88,39 @@
   "Retrieves blob metadata from database, nil if blob does not exists"
   [db id]
   (->> (sql
-         (select sqdb [:id :size :created-at :updated-at]
+         (select sqdb [:id :tag :size :created-at :updated-at]
                  (from :blobs)
                  (where `(= :id ~id))))
+       (j/query db)
+       first))
+
+(defn blobs-table-exists?
+  [db]
+  (->> (select sqdb [:tablename]
+               (from :pg_tables)
+               (where '(and (= :schemaname "public")
+                            (= :tablename "blobs"))))
+       (sql)
        (j/query db)
        first))
 
 (defn create-blobs-table!
   "Creates the blobs table if not exists"
   [db]
-  (j/execute! db
-              (sql
-                (create-table sqdb :blobs
-                              (if-not-exists true)
-                              (column :id :varchar :length 150 :primary-key? true)
-                              (column :blob :bytea)
-                              (column :oid :oid)
-                              (column :size :bigint :not-null? true)
-                              (column :created-at :timestamp-with-time-zone :not-null? true :default '(now))
-                              (column :updated-at :timestamp-with-time-zone)))))
+  (when-not (blobs-table-exists? db)
+    (j/with-db-transaction [t-conn db]
+      (j/execute! db
+                  (sql
+                    (create-table sqdb :blobs
+                                  (if-not-exists true)
+                                  (column :id :varchar :length 150 :primary-key? true)
+                                  (column :tag :varchar :length 32)
+                                  (column :blob :bytea)
+                                  (column :oid :oid)
+                                  (column :size :bigint :not-null? true)
+                                  (column :created-at :timestamp-with-time-zone :not-null? true :default '(now))
+                                  (column :updated-at :timestamp-with-time-zone)))))
+    (j/execute! db "CREATE INDEX IF NOT EXISTS blobs_tag_idx ON blobs(tag)")))
 
 (defn drop-blobs-table!
   "Drop the blobs table if exists"
@@ -121,40 +135,48 @@
   The blob id is created internally.
 
   Returns the id generated"
-  [db [blob-size input-stream :as blob]]
+  [db [blob-size input-stream :as blob] {:keys [tag]}]
   (let [id (str (java.util.UUID/randomUUID))]
-    (when (execute-upsert-transaction! db
-                                       blob
-                                       (fn [upserts]
-                                         (sql (insert sqdb
-                                                      :blobs
-                                                      []
-                                                      (values (reduce (fn [m [k v]]
-                                                                        ; remove nil values
-                                                                        (if v (assoc m k v) m))
-                                                                      {:id id}
-                                                                      (dissoc upserts :updated-at)))))))
+    (when (execute-upsert-transaction!
+            db
+            blob
+            (fn [upserts]
+              (let [upserts (-> upserts
+                                (dissoc :updated-at)
+                                (th/when-> tag
+                                  (assoc :tag tag)))]
+                (sql (insert sqdb
+                             :blobs
+                             []
+                             (values (reduce (fn [m [k v]]
+                                               ; remove nil values
+                                               (if v (assoc m k v) m))
+                                             {:id id}
+                                             upserts)))))))
       id)))
 
 (defn inup-blob!
   "Inserts the new blob to the database using the specified id.
 
   Returns the id generated"
-  [db [blob-size input-stream :as blob] id]
-  (execute-upsert-transaction! db
-                               blob
-                               (fn [upserts]
-                                 (sql
-                                   (with sqdb
-                                         [:upsert (update sqdb
-                                                          :blobs
-                                                          upserts
-                                                          (where `(= :id ~id))
-                                                          (returning *))]
-                                         (insert sqdb :blobs (vec (cons :id (filter #(get upserts %) (keys upserts))))
-                                                 (select sqdb (vec (cons id (filter identity (vals upserts)))))
-                                                 (where `(not-exists ~(select sqdb [*]
-                                                                              (from :upsert)))))))))
+  [db [blob-size input-stream :as blob] id {:keys [tag]}]
+  (execute-upsert-transaction!
+    db
+    blob
+    (fn [upserts]
+      (let [upserts (if tag (assoc upserts :tag tag) upserts)]
+        (sql
+          (with sqdb
+                [:upsert (update sqdb
+                                 :blobs
+                                 upserts
+                                 (where `(= :id ~id))
+                                 (returning *))]
+                (let [upserts (dissoc upserts :updated-at)]
+                  (insert sqdb :blobs (vec (cons :id (filter #(get upserts %) (keys upserts))))
+                          (select sqdb (vec (cons id (filter identity (vals upserts)))))
+                          (where `(not-exists ~(select sqdb [*]
+                                                       (from :upsert)))))))))))
   id)
 
 (defn update-blob!
@@ -182,3 +204,4 @@
         (let [stmt (j/prepare-statement conn
                                         "DELETE FROM blobs WHERE id = ?")]
           (j/execute! db [stmt id]))))))
+

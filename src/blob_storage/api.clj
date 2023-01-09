@@ -7,7 +7,7 @@
   (drop-schema! [service]
     "Drops the schema")
 
-  (store! [service blob] [service blob id]
+  (store! [service blob] [service blob {:keys [id tag]}]
     "Adds a new blob to the database. `blob` can be a file, a byte array or an input stream.")
 
   (update! [service id blob]
@@ -19,15 +19,17 @@
   (blob [service id]
     "Retrieves a blob given its id. Returns a map of:
      - :id - the id of the blob (same as the id argument)
+     - :tag - user defined tag associated with this blob
      - :size - the size of the blob in bytes
-     - :created-at - the date when the blob was created
-     - :updated-at - the date when the blob was last updated (if any)
+     - :created_at - the date when the blob was created
+     - :updated_at - the date when the blob was last updated (if any)
      - :blob  - the blob itself (a java.io.InputStream object)")
 
   (blob-metadata [service id]
     "Retrieves metadata for a blob given its id (blob not included).
      Returns a map of:
-     - :id - the id of the blob (same as the id argument)
+     - :id - the id of the blob (same as the id argument
+     - :tag - user defined tag associated with this blob)
      - :size - the size of the blob in bytes
-     - :created-at - the date when the blob was created
-     - :updated-at - the date when the blob was last updated (if any)"))
+     - :created_at - the date when the blob was created
+     - :updated_at - the date when the blob was last updated (if any)"))
