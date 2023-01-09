@@ -1,0 +1,6 @@
+{:profiles/dev
+ {:env {:aws-access-key-id "KEY"
+        :aws-access-key-secret "SECRET"
+        :aws-region "us-east-1"
+        :database-url-mssql "jdbc:sqlserver://localhost:1433;databaseName=prisma;user=prisma;password=prisma"
+        :database-url-pg "postgresql://postgres:postgres@localhost:5432/blobs_test"}}}

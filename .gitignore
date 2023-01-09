@@ -8,3 +8,8 @@ blob_storage.iml
 .lein-repl-history
 .lein-failures
 .idea
+profiles.clj
+.clj-kondo
+.lsp
+.lein-env
+
