@@ -15,10 +15,12 @@
     (schema/drop-blobs-table! config))
 
   (store! [service blob]
-    (schema/store-blob! config (coerce-blob blob)))
+    (schema/store-blob! config (coerce-blob blob) {}))
 
-  (store! [service blob id]
-    (schema/inup-blob! config (coerce-blob blob) id))
+  (store! [service blob {:keys [id tag] :as data}]
+    (if id
+      (schema/inup-blob! config (coerce-blob blob) id data)
+      (schema/store-blob! config (coerce-blob blob) data)))
 
   (update! [service id blob]
     (schema/update-blob! config id (coerce-blob blob)))
