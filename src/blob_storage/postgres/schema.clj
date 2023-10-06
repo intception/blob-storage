@@ -80,6 +80,9 @@
       (some-> row
               (th/when-> (:oid row)
                 (assoc :blob (large-object->file conn (:oid row))))
+              (th/when-> (:oid row)
+                ;; don't lose the reference to the file
+                (#(assoc % :file (:blob %))))
               (clojure.core/update :blob #(io/input-stream %))
               ;; internal implementation detail, no need to expose it
               (dissoc :oid)))))
