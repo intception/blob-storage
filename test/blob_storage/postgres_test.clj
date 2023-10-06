@@ -46,6 +46,7 @@
             blob-meta (b/blob-metadata service blob-id)]
         (is (instance? java.io.InputStream (:blob stored-blob)))
         (is (instance? java.io.BufferedInputStream (:blob stored-blob)))
+        (is (nil? (:file stored-blob)))
         (is (= 99 (alength (bc/blob->bytes (:blob stored-blob)))) "Incorrect blob length")
         (is (= blob-meta (dissoc stored-blob :blob)))))
 
@@ -57,5 +58,6 @@
         (is (not (bytes? (:blob stored-blob))) "Blob should be afile")
         (is (instance? java.io.InputStream (:blob stored-blob)))
         (is (instance? java.io.BufferedInputStream (:blob stored-blob)))
+        (is (instance? java.io.File (:file stored-blob)))
         (is (= 101 (alength (bc/blob->bytes (:blob stored-blob)))) "Incorrect blob length")
         (is (= blob-meta (dissoc stored-blob :blob)))))))

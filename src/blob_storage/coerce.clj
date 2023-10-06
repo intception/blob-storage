@@ -65,3 +65,13 @@
   "Creates an InputStream from a blob. The blob can be a file or a byte array"
   [blob]
   (io/input-stream blob))
+
+(defn blob->file
+  "If the blob has a file key, then return it, otherwise
+   create a temporary file and copy the blob to it."
+  [{:keys [blob file]}]
+  (if file
+    file
+    (let [temp-file (File/createTempFile "blob-storage" ".bin")]
+      (io/copy blob temp-file)
+      temp-file)))
