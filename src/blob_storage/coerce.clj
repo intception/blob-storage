@@ -68,10 +68,13 @@
 
 (defn blob->file
   "If the blob has a file key, then return it, otherwise
-   create a temporary file and copy the blob to it."
-  [{:keys [blob file]}]
+   create a temporary file and copy the blob to it.
+   Note: blob must support mark/reset"
+  [{:keys [blob file size]}]
   (if file
     file
     (let [temp-file (File/createTempFile "blob-storage" ".bin")]
+      (.mark blob size)
       (io/copy blob temp-file)
+      (.reset blob)
       temp-file)))
