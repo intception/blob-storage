@@ -77,15 +77,14 @@
           stmt (j/prepare-statement conn
                                     "SELECT * FROM blobs WHERE id = ?")
           row (first (j/query db [stmt id]))]
-      (some-> row
-              (th/when-> (:oid row)
-                (assoc :blob (large-object->file conn (:oid row))))
-              (th/when-> (:oid row)
-                ;; don't lose the reference to the file
-                (#(assoc % :file (:blob %))))
-              (clojure.core/update :blob #(io/input-stream %))
-              ;; internal implementation detail, no need to expose it
-              (dissoc :oid)))))
+      (when row
+        (merge
+          (select-keys row [:id :size :created_at :updated_at :tag])
+          (if (:oid row)
+            (let [file (large-object->file conn (:oid row))]
+              {:file file
+               :blob (io/input-stream file)})
+            {:blob (java.io.ByteArrayInputStream. (:blob row))}))))))
 
 (defn get-blob-metadata
   "Retrieves blob metadata from database, nil if blob does not exists"
