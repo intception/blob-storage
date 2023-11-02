@@ -1,11 +1,11 @@
 (ns blob-storage.mem-test
   (:require [blob-storage.api :as b]
-            [blob-storage.coerce :as bc]
-            [blob-storage.mem :as mem]
+            [blob-storage.backends.mem :as backend]
+            [blob-storage.core :as bs]
             [blob-storage.test-common :refer :all])
   (:use [clojure.test]))
 
-(def service (mem/make))
+(def service (bs/make (backend/make) {}))
 
 (defn init-schema-fixture [f]
   (try
@@ -34,3 +34,5 @@
 (deftest delete-blob
   (test-delete-blob service))
 
+(deftest test-blob-cache
+  (test-local-cache (backend/make)))

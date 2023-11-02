@@ -4,7 +4,7 @@
             [clojure.java.io :as io]
             [pallet.thread-expr :as th]
             [sqlingvo.db :as sqdb]
-            [blob-storage.coerce :as bc])
+            [blob-storage.core.coerce :as bc])
   (:use sqlingvo.core))
 
 (def sqdb (sqdb/sqlserver))
@@ -18,9 +18,7 @@
                               (select sqdb [*]
                                       (from :blobs)
                                       (where `(= :id ~id))))))]
-    (clojure.core/update row
-                         :blob
-                         io/input-stream)))
+    row))
 
 (defn get-blob-metadata
   "Retrieves blob metadata from database, nil if blob does not exists"
