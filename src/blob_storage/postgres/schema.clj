@@ -3,7 +3,7 @@
   (:require [clojure.java.jdbc :as j]
             [sqlingvo.db :as sqdb]
             [pallet.thread-expr :as th]
-            [blob-storage.coerce :as bc]
+            [blob-storage.core.coerce :as bc]
             [clojure.java.io :as io])
   (:use sqlingvo.core)
   (:import (org.postgresql PGConnection)
@@ -82,9 +82,8 @@
           (select-keys row [:id :size :created_at :updated_at :tag])
           (if (:oid row)
             (let [file (large-object->file conn (:oid row))]
-              {:file file
-               :blob (io/input-stream file)})
-            {:blob (java.io.ByteArrayInputStream. (:blob row))}))))))
+              {:file file})
+            {:blob (:blob row)}))))))
 
 (defn get-blob-metadata
   "Retrieves blob metadata from database, nil if blob does not exists"

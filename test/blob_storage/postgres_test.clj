@@ -1,14 +1,15 @@
 (ns blob-storage.postgres-test
   (:require [blob-storage.api :as b]
-            [blob-storage.coerce :as bc]
-            [blob-storage.postgres :as p]
+            [blob-storage.backends.postgres :as backend]
+            [blob-storage.core :as bs]
             [blob-storage.test-common :refer :all]
             [environ.core :refer [env]])
-  (:use [clojure.test]))
+  (:use [clojure.test])
+  (:import (java.io File)))
 
 (def db-spec (env :database-url-pg))
 
-(def service (p/make db-spec))
+(def service (bs/make (backend/make db-spec) {}))
 
 (defn init-schema-fixture [f]
   (try
@@ -42,22 +43,47 @@
     (testing "smaller than threshold"
       (let [blob (byte-array 99)
             blob-id (b/store! service blob)
-            stored-blob (b/blob service blob-id)
-            blob-meta (b/blob-metadata service blob-id)]
-        (is (instance? java.io.InputStream (:blob stored-blob)))
-        (is (instance? java.io.BufferedInputStream (:blob stored-blob)))
-        (is (nil? (:file stored-blob)))
-        (is (= 99 (alength (bc/blob->bytes (:blob stored-blob)))) "Incorrect blob length")
-        (is (= blob-meta (dissoc stored-blob :blob)))))
+            stored-blob (b/blob service blob-id)]
+        (is (some? (get @(:state stored-blob) :bytes)) "Blob should have bytes")
+        (is (nil? (get @(:state stored-blob) :file)) "Blob should not be a file")
+        (is (= 99 (alength (b/get-bytes stored-blob))) "Incorrect blob length"))
+
+      (let [file (File/createTempFile "test-blob-storage" ".bin")]
+        (with-open [w (clojure.java.io/output-stream file)]
+          (.write w (byte-array 99)))
+        (try
+          (let [blob-id (b/store! service file)
+                stored-blob (b/blob service blob-id)]
+            (is (some? (get @(:state stored-blob) :bytes)) "Blob should have bytes")
+            (is (nil? (get @(:state stored-blob) :file)) "Blob should not be a file")
+            (is (= 99 (alength (b/get-bytes stored-blob))) "Incorrect blob length")
+            (is (= 99 (alength (stream->bytes (b/open-input-stream stored-blob)))) "Incorrect stream blob size"))
+          (finally
+            (.delete file)))))
 
     (testing "bigger than threshold"
-      (let [blob (byte-array 101)
+      (let [blob (byte-array 512000)
             blob-id (b/store! service blob)
-            stored-blob (b/blob service blob-id)
-            blob-meta (b/blob-metadata service blob-id)]
-        (is (not (bytes? (:blob stored-blob))) "Blob should be afile")
-        (is (instance? java.io.InputStream (:blob stored-blob)))
-        (is (instance? java.io.BufferedInputStream (:blob stored-blob)))
-        (is (instance? java.io.File (:file stored-blob)))
-        (is (= 101 (alength (bc/blob->bytes (:blob stored-blob)))) "Incorrect blob length")
-        (is (= blob-meta (dissoc stored-blob :blob)))))))
+            stored-blob (b/blob service blob-id)]
+        (is (nil? (get @(:state stored-blob) :bytes)) "Blob should not have bytes")
+        (is (some? (get @(:state stored-blob) :file)) "Blob should be a file")
+        (is (= 512000 (alength (b/get-bytes stored-blob))) "Incorrect blob length")
+        (is (= 512000 (alength (stream->bytes (b/open-input-stream stored-blob)))) "Incorrect stream blob size"))
+
+      (let [file (File/createTempFile "test-blob-storage" ".bin")]
+        (with-open [w (clojure.java.io/output-stream file)]
+          (.write w (byte-array 512000)))
+        (try
+          (let [blob-id (b/store! service file)
+                stored-blob (b/blob service blob-id)]
+            (is (nil? (get @(:state stored-blob) :bytes)) "Blob should not have bytes")
+            (is (some? (get @(:state stored-blob) :file)) "Blob should be a file")
+            (is (= 512000 (alength (b/get-bytes stored-blob))) "Incorrect blob length")
+            (is (= 512000 (alength (stream->bytes (b/open-input-stream stored-blob)))) "Incorrect stream blob size"))
+          (finally
+            (.delete file)))))))
+
+(deftest test-blob-cache
+  (with-redefs [blob-storage.postgres.schema/large-object-threshold (delay 1000)]
+    (test-local-cache (backend/make db-spec))))
+

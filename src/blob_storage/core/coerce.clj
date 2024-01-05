@@ -1,4 +1,4 @@
-(ns blob-storage.coerce
+(ns blob-storage.core.coerce
   (:require [clojure.java.io :as io])
   (:import (java.io File InputStream)))
 

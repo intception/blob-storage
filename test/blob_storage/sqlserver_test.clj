@@ -1,13 +1,13 @@
 (ns blob-storage.sqlserver-test
-  (:use [clojure.test])
-  (:require [blob-storage.sql-server :as p]
-            [blob-storage.api :as b]
+  (:require [blob-storage.api :as b]
+            [blob-storage.backends.sql-server :as backend]
+            [blob-storage.core :as bs]
             [blob-storage.test-common :refer :all]
-            [environ.core :refer [env]]))
+            [environ.core :refer [env]])
+  (:use [clojure.test]))
 
 (def db-spec (env :database-url-mssql))
-
-(def service (p/make db-spec))
+(def service (bs/make (backend/make db-spec) {}))
 
 (defn init-schema-fixture [f]
   (try
@@ -36,4 +36,6 @@
 (deftest delete-blob
   (test-delete-blob service))
 
+(deftest test-blob-cache
+  (test-local-cache (backend/make db-spec)))
 
